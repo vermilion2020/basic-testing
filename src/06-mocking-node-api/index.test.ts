@@ -1,5 +1,6 @@
 import path from 'path';
 import { doStuffByInterval, doStuffByTimeout, readFileAsynchronously } from '.';
+import fs from 'fs';
 
 describe('doStuffByTimeout', () => {
   beforeAll(() => {
@@ -15,7 +16,6 @@ describe('doStuffByTimeout', () => {
     jest.spyOn(global, 'setTimeout');
     const timeout = 400;
     doStuffByTimeout(cb, timeout);
-    jest.advanceTimersByTime(timeout);
     expect(setTimeout).toHaveBeenCalledWith(cb, timeout);
   });
 
@@ -43,7 +43,6 @@ describe('doStuffByInterval', () => {
     jest.spyOn(global, 'setInterval');
     const timeout = 400;
     doStuffByInterval(cb, timeout);
-    jest.advanceTimersByTime(timeout);
     expect(setInterval).toHaveBeenCalledWith(cb, timeout);
   });
 
@@ -60,21 +59,24 @@ describe('doStuffByInterval', () => {
 
 describe('readFileAsynchronously', () => {
   test('should call join with pathToFile', async () => {
-    jest.spyOn(path, 'join');
-    const pathToFile = 'test.txt';
-    await readFileAsynchronously(pathToFile);
-    expect(path.join).toHaveBeenCalledWith(__dirname, pathToFile);
+    path['join'] = jest.fn(() => 'test.txt');
+    await readFileAsynchronously('test.txt');
+    expect(path.join).toHaveBeenCalledWith(__dirname, 'test.txt');
   });
 
   test('should return null if file does not exist', async () => {
-    const pathToFile = 'test.txt';
-    const res = await readFileAsynchronously(pathToFile);
-    expect(res).toBeNull();
+    fs['existsSync'] = jest.fn(() => false);
+    const result = await readFileAsynchronously('test.txt');
+    expect(result).toBeNull();
   });
 
   test('should return file content if file exists', async () => {
-    const pathToFile = 'test1.txt';
-    const res = await readFileAsynchronously(pathToFile);
-    expect(res).toBe('test');
+    fs['existsSync'] = jest.fn(() => true);
+    const content = 'test';
+    (fs.promises['readFile'] as jest.Mock) = jest.fn(async () =>
+      Buffer.from(content),
+    );
+    const res = await readFileAsynchronously('test.txt');
+    expect(res).toBe(content);
   });
 });
